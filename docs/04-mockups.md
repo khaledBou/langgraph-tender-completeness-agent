@@ -1,6 +1,6 @@
 # Mockups
 
-The screens were designed in Figma before the Angular interface was built, from the same color tokens and text styles as the stylesheet.
+The Figma file documents the interface, its components and its visual tokens. It uses the same color tokens and text styles as the Angular stylesheet.
 
 Figma file: https://www.figma.com/design/9HuvKZ2XsfNx85QXEpzhGf
 

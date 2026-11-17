@@ -24,9 +24,9 @@ flowchart TD
 ```
 
 - Parallel workers with `Send`: one per file for extraction, one per requirement for the check. Their outputs go to append reducers.
-- Structured outputs with Pydantic for every model call.
-- Evidence validated by code: a finding is present only when the quoted passage exists in the named file. Otherwise it becomes doubtful.
-- Rules before the model: no file means missing, an unreadable file means doubtful, a truncated file cannot produce a final missing.
+- Structured outputs with Pydantic for extraction and requirement checks.
+- Evidence validated by code: an automated finding is present only when the quoted passage exists in the named file. Otherwise it becomes doubtful and a reviewer decides.
+- Rules before the model: no file means missing; when a file is unreadable, the requirements not established by the other files become doubtful; a truncated file cannot produce a final missing.
 - Human in the loop with `interrupt()`. An invalid answer routes back to the same node, which pauses again with the error.
 - Verdict and report computed by code from the resolved findings. The model only writes an optional summary.
 - PostgreSQL checkpoints with an explicit allowlist of state types. One review equals one thread.
@@ -52,20 +52,24 @@ REFERENCES  missing
 
 The review pauses on KBIS and INSURANCE. After the reviewer answers "missing" for both, the verdict is incomplete and the report lists the missing documents with the reviewer's comments.
 
+![Review paused for a decision](docs/mockups/review-needs-decision.png)
+
 ## Results on the evaluation set
 
-Twenty synthetic applications, one hundred requirement checks, run with Claude on 17 November 2026. Full results and the dataset are in [backend/evaluation](backend/evaluation/README.md).
+Twenty synthetic applications, one hundred requirement checks, run with Claude on 17 November 2026. The full results, with the evidence quoted for every present finding, the decisions applied and the commit evaluated, are in [backend/evaluation](backend/evaluation/README.md).
 
 | Measure | Result |
 |---|---|
 | Technical errors | 0 / 20 |
+| Finding status equal to the expected status | 100 / 100 |
 | Finding status within the accepted statuses | 100 / 100 |
-| False present | 0 / 28 |
-| Missed mandatory missing | 0 / 14 |
-| Verdict correct after the reference decisions | 20 / 20 |
-| Applications paused for human review | 9 / 20 |
+| False present: document absent or not provable, workflow said present | 0 / 28 |
+| Absent mandatory documents incorrectly marked present | 0 / 14 |
+| Applications completed without human intervention, verdict correct | 12 / 12 |
+| Applications paused for human review | 8 / 20 |
+| Final verdict correct after the reference decisions | 20 / 20 |
 
-The dataset is small. Read the raw numbers, not percentages.
+Initial regression evaluation on short, largely templated English documents. These results do not establish performance on real tender applications. The numbers measure the whole workflow, rules included, not the model alone. Runs differ slightly: an earlier run of the same day answered doubtful instead of missing on one optional requirement and paused 9 applications.
 
 ## Run it
 
@@ -81,7 +85,7 @@ make up
 
 Create a review, give the candidate a name, upload the files of `backend/examples/incomplete_application`, and watch the review pause for your decision. Ports and credentials are set in `.env`.
 
-Without Docker:
+Run the application locally, with PostgreSQL in Docker. Requirements: Python 3.12, uv, Node 24.
 
 ```bash
 make db            # PostgreSQL only
@@ -142,12 +146,24 @@ docker compose exec backend uv run python manage.py recover_reviews
 
 The command reconciles each stuck review with its checkpoint: restart, restore the pause, store the finished result, or continue. Decisions accepted before a crash are sent again automatically.
 
+## Limits
+
+- No OCR: a scanned document without a text layer is reported unreadable and its requirements go to the reviewer.
+- Each file is given to the check worker up to a character budget. A longer file is marked truncated and cannot produce a final missing, which raises the number of human reviews on long applications.
+- The evidence check proves that a quote comes from the file. Whether the quote establishes the requirement was measured on a few cases only.
+- The demonstration runs locally, without authentication. The deployment guide adds TLS and a reverse proxy, not user accounts.
+
+## Deployment
+
+A guide for Scaleway is in [docs/05-deployment-scaleway.md](docs/05-deployment-scaleway.md). It uses the same Docker Compose stack on an Instance, with a managed PostgreSQL database and a reverse proxy for TLS. The stack was verified locally; the Scaleway steps are written from the provider's documentation and were not executed as part of this repository.
+
 ## Documentation
 
 - [Expression of need](docs/01-expression-of-need.md)
 - [Functional specification](docs/02-functional-specification.md) with the acceptance scenarios
 - [Technical specification](docs/03-technical-specification.md)
 - [Mockups](docs/04-mockups.md)
+- [Deployment on Scaleway](docs/05-deployment-scaleway.md)
 - [Evaluation](backend/evaluation/README.md)
 - [Changelog](CHANGELOG.md)
 
