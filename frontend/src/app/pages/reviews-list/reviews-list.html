@@ -1,0 +1,55 @@
+<header class="page-header">
+  <div>
+    <h1>Reviews</h1>
+    <p class="muted">Completeness checks of tender applications</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">Refresh</button>
+    <a routerLink="/reviews/new" class="btn btn-primary">New review</a>
+  </div>
+</header>
+
+@if (error()) {
+  <div class="alert alert-danger">{{ error() }}</div>
+}
+
+@if (loading()) {
+  <p class="muted">Loading…</p>
+} @else if (reviews().length === 0) {
+  <div class="empty">
+    <h2>No review yet</h2>
+    <p>Create a review to check an application against a checklist.</p>
+    <a routerLink="/reviews/new" class="btn btn-primary">New review</a>
+  </div>
+} @else {
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Checklist</th>
+          <th>Status</th>
+          <th>Verdict</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (review of reviews(); track review.id) {
+          <tr>
+            <td><a [routerLink]="['/reviews', review.id]">{{ review.candidate_name }}</a></td>
+            <td>{{ review.checklist }}</td>
+            <td><app-status-badge [value]="review.status" /></td>
+            <td>
+              @if (review.verdict) {
+                <app-status-badge [value]="review.verdict" />
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>{{ review.created_at | date: 'd MMM y, HH:mm' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+uv run --no-dev python manage.py migrate --noinput
+uv run --no-dev python manage.py load_checklists
+
+exec "$@"

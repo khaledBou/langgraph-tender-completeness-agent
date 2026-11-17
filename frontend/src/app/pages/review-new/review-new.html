@@ -1,0 +1,66 @@
+<header class="page-header">
+  <div>
+    <a routerLink="/reviews" class="back">← Reviews</a>
+    <h1>New review</h1>
+  </div>
+</header>
+
+<form class="card form" (ngSubmit)="submit()">
+  @if (error()) {
+    <div class="alert alert-danger">{{ error() }}</div>
+  }
+
+  <label>
+    <span>Candidate</span>
+    <input type="text" name="candidateName" [(ngModel)]="candidateName" placeholder="Company name" required />
+  </label>
+
+  <label>
+    <span>Checklist</span>
+    <select name="checklist" [(ngModel)]="checklist" required>
+      @for (item of checklists(); track item.slug) {
+        <option [value]="item.slug">{{ item.name }}</option>
+      }
+    </select>
+  </label>
+
+  @if (selectedChecklist; as selected) {
+    <div class="requirements">
+      <span class="label">Required documents</span>
+      <ul>
+        @for (req of selected.items; track req.code) {
+          <li>
+            <strong>{{ req.code }}</strong> {{ req.label }}
+            @if (!req.mandatory) {
+              <span class="muted">(optional)</span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
+  <label>
+    <span>Files of the application</span>
+    <input type="file" name="files" multiple accept=".pdf,.txt,.md,.csv" (change)="onFilesSelected($event)" />
+    <small class="muted">PDF, TXT, MD or CSV. You can also submit without files.</small>
+  </label>
+
+  @if (files().length > 0) {
+    <ul class="file-list">
+      @for (file of files(); track file.name; let i = $index) {
+        <li>
+          <span>{{ file.name }}</span>
+          <button type="button" class="link" (click)="removeFile(i)">Remove</button>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="form-actions">
+    <a routerLink="/reviews" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+      {{ submitting() ? 'Starting…' : 'Start the review' }}
+    </button>
+  </div>
+</form>

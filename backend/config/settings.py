@@ -7,7 +7,10 @@ import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# The .env at the repository root is shared with Docker Compose.
+# A backend/.env, if present, takes precedence for local overrides.
+load_dotenv(BASE_DIR.parent / ".env")
+load_dotenv(BASE_DIR / ".env", override=True)
 
 
 def env_bool(name: str, default: bool = False) -> bool:

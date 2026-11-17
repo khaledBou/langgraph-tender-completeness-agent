@@ -1,0 +1,185 @@
+<header class="page-header">
+  <div>
+    <a routerLink="/reviews" class="back">← Reviews</a>
+    @if (review(); as r) {
+      <h1>{{ r.candidate_name }}</h1>
+      <p class="muted">Checklist {{ r.checklist }} · created {{ r.created_at | date: 'd MMM y, HH:mm' }}</p>
+    } @else {
+      <h1>Review</h1>
+    }
+  </div>
+  @if (review(); as r) {
+    <div class="status">
+      <app-status-badge [value]="r.status" />
+      @if (r.verdict) {
+        <app-status-badge [value]="r.verdict" />
+      }
+    </div>
+  }
+</header>
+
+@if (error()) {
+  <div class="alert alert-danger">{{ error() }}</div>
+}
+
+@if (loading()) {
+  <p class="muted">Loading…</p>
+}
+
+@if (review(); as r) {
+  @if (isActive()) {
+    <div class="alert alert-info">
+      <span class="spinner"></span>
+      The workflow is reading the files and checking each requirement. This page refreshes on its own.
+    </div>
+  }
+
+  @if (r.status === 'failed') {
+    <div class="alert alert-danger">
+      <strong>The review failed.</strong> {{ r.error }}
+    </div>
+  }
+
+  @if (r.status === 'waiting_for_human' && r.pending_review; as pending) {
+    <section class="card decision">
+      <h2>Your decision is needed</h2>
+      <p class="muted">{{ pending.reason }}. Decide for each document, then send.</p>
+      @if (pending.error) {
+        <div class="alert alert-warning">Previous answer refused: {{ pending.error }}</div>
+      }
+      @if (decisionError()) {
+        <div class="alert alert-danger">{{ decisionError() }}</div>
+      }
+      @for (f of pending.findings; track f.requirement_code) {
+        <div class="decision-item">
+          <div class="decision-head">
+            <strong>{{ f.requirement_code }}</strong> {{ requirement(f.requirement_code)?.label }}
+            @if (f.matched_file) {
+              <span class="muted">· {{ f.matched_file }}</span>
+            }
+          </div>
+          @if (f.evidence) {
+            <blockquote>{{ f.evidence }}</blockquote>
+          }
+          <p class="reason">{{ f.reasoning }}</p>
+          <div class="decision-controls">
+            <label class="radio">
+              <input type="radio" [name]="'d-' + f.requirement_code" value="present"
+                     [checked]="decisions()[f.requirement_code]?.status === 'present'"
+                     (change)="setDecision(f.requirement_code, 'present')" />
+              Present
+            </label>
+            <label class="radio">
+              <input type="radio" [name]="'d-' + f.requirement_code" value="missing"
+                     [checked]="decisions()[f.requirement_code]?.status === 'missing'"
+                     (change)="setDecision(f.requirement_code, 'missing')" />
+              Missing
+            </label>
+            <input type="text" placeholder="Comment (optional)"
+                   [value]="decisions()[f.requirement_code]?.comment ?? ''"
+                   (input)="setComment(f.requirement_code, $any($event.target).value)" />
+          </div>
+        </div>
+      }
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" (click)="sendDecisions()" [disabled]="!allDecided() || sending()">
+          {{ sending() ? 'Sending…' : 'Send the decisions' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (findings().length > 0) {
+    <section class="card">
+      <h2>Findings</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Requirement</th>
+            <th>Status</th>
+            <th>Source file</th>
+            <th>Evidence and reasoning</th>
+            <th>Decided by</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of findings(); track f.requirement_code) {
+            <tr>
+              <td>
+                <strong>{{ f.requirement_code }}</strong><br />
+                <span class="muted">{{ requirement(f.requirement_code)?.label }}</span>
+                @if (requirement(f.requirement_code)?.mandatory === false) {
+                  <span class="muted"> (optional)</span>
+                }
+              </td>
+              <td><app-status-badge [value]="f.status" /></td>
+              <td>{{ f.matched_file ?? '—' }}</td>
+              <td>
+                @if (f.evidence) {
+                  <blockquote>{{ f.evidence }}</blockquote>
+                }
+                <span class="reason">{{ f.reasoning }}</span>
+              </td>
+              <td>{{ f.decided_by }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  @if (r.status === 'completed') {
+    <section class="card report">
+      <h2>Report</h2>
+      <div class="markdown" [innerHTML]="reportHtml()"></div>
+    </section>
+  }
+
+  <section class="card">
+    <h2>Files</h2>
+    @if (r.files.length === 0) {
+      <p class="muted">No file was submitted.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Read</th>
+            <th>Understood as</th>
+            <th>Issuer</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (file of r.files; track file.id) {
+            <tr>
+              <td><a [href]="file.url" target="_blank" rel="noopener">{{ file.name }}</a></td>
+              <td>
+                @if (file.extraction_error) {
+                  <app-status-badge value="unreadable" />
+                  <span class="muted"> {{ file.extraction_error }}</span>
+                } @else {
+                  @for (doc of r.extracted_documents; track doc.file_id) {
+                    @if (doc.file_name === file.name) {
+                      <app-status-badge [value]="doc.status" />
+                      @if (doc.error) {
+                        <span class="muted"> {{ doc.error }}</span>
+                      }
+                    }
+                  }
+                }
+              </td>
+              @for (doc of r.extracted_documents; track doc.file_id) {
+                @if (doc.file_name === file.name) {
+                  <td>{{ doc.document_type || '—' }}<br /><span class="muted">{{ doc.summary }}</span></td>
+                  <td>{{ doc.issuer ?? '—' }}</td>
+                  <td>{{ doc.issue_date ?? '—' }}</td>
+                }
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+}

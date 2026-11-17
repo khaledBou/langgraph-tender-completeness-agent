@@ -1,0 +1,45 @@
+name: ${COMPOSE_PROJECT_NAME:-tender}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tender}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tender}
+      POSTGRES_DB: ${POSTGRES_DB:-tender}
+    ports:
+      - "${DB_PORT:-5440}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tender} -d ${POSTGRES_DB:-tender}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-tender}:${POSTGRES_PASSWORD:-tender}@db:5432/${POSTGRES_DB:-tender}
+      MEDIA_ROOT: /data/media
+    ports:
+      - "${BACKEND_PORT:-8010}:8000"
+    volumes:
+      - media_data:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-4210}:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  media_data:

@@ -1,0 +1,54 @@
+.status { display: flex; gap: 8px; align-items: center; }
+
+.decision {
+  border: 2px solid var(--warning-300);
+
+  .decision-item {
+    padding: 16px 0;
+    border-top: 1px solid var(--neutral-200);
+  }
+  .decision-head { margin-bottom: 8px; }
+  .decision-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-top: 8px;
+
+    input[type='text'] { flex: 1; min-width: 200px; }
+  }
+  .radio { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+}
+
+.form-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+blockquote {
+  margin: 4px 0 6px;
+  padding: 6px 12px;
+  border-left: 3px solid var(--primary-300);
+  background: var(--neutral-50);
+  font-style: italic;
+  color: var(--neutral-700);
+}
+
+.reason { color: var(--neutral-600); font-size: 0.9rem; }
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid var(--info-300);
+  border-top-color: var(--info-700);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.markdown {
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.05rem; margin-top: 20px; }
+  ul { padding-left: 20px; }
+}
