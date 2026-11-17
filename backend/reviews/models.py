@@ -37,6 +37,9 @@ class Review(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate_name = models.CharField(max_length=200)
     checklist = models.ForeignKey(Checklist, on_delete=models.PROTECT, related_name="reviews")
+    # Copy of the checklist items at creation time. A checklist can change later,
+    # the review keeps the requirements it was checked against.
+    requirements = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     verdict = models.CharField(max_length=20, choices=Verdict.choices, blank=True)
     error = models.TextField(blank=True)

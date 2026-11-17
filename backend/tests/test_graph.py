@@ -3,8 +3,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from agent.graph import build_graph
+from agent.nodes import MAX_CHARS_PER_FILE
 from agent.schemas import CheckOutput, RequiredDocument, SubmittedFile
-from agent.testing import FakeLLM
+from agent.testing import FakeLLM, TransientModelError
 
 CHECKLIST = [
     RequiredDocument(code="DC1", label="Application letter"),
@@ -53,6 +54,7 @@ def test_files_get_stable_identifiers():
     _, _, state = run(FakeLLM())
     assert [f.id for f in state["submitted_files"]] == ["F1", "F2"]
     assert state["resolved_findings"][0].matched_file == "dc1.txt"
+    assert state["resolved_findings"][0].matched_file_id == "F1"
 
 
 # A2: no file submitted
@@ -66,8 +68,7 @@ def test_no_files_means_every_requirement_is_missing_without_calling_the_model()
     assert state["verdict"] == "incomplete"
     assert statuses(state) == {"DC1": "missing", "KBIS": "missing", "REFS": "missing"}
     assert all(f.decided_by == "rule" for f in state["resolved_findings"])
-    assert llm.calls.count("extract") == 0
-    assert llm.calls.count("check") == 0
+    assert llm.calls == []
 
 
 # A3: doubtful finding, pause and resume
@@ -124,6 +125,7 @@ def test_invalid_decisions_are_rejected_and_the_review_stays_paused(answer, mess
     # Still paused, with the error explained to the reviewer.
     assert "report" not in state
     assert message in state["__interrupt__"][0].value["error"]
+    assert graph.get_state(config).values["review_error"]
 
     # A valid answer completes the review.
     final = graph.invoke(Command(resume=[{"requirement_code": "KBIS", "status": "present"}]), config)
@@ -157,14 +159,44 @@ def test_unknown_file_reference_makes_the_finding_doubtful():
 
 
 def test_unreadable_file_never_produces_a_missing_finding():
-    llm = FakeLLM({"KBIS": CheckOutput(status="missing", reasoning="nothing found")}, fail_on_file="kbis.txt")
-    _, _, state = run(llm)
+    llm = FakeLLM({"KBIS": CheckOutput(status="missing", reasoning="nothing found")})
+    files = [FILES[0], SubmittedFile(name="kbis.txt", text="  ")]
+    _, _, state = run(llm, files=files)
 
     unreadable = [d for d in state["extracted_documents"] if d.status == "unreadable"]
     assert [d.file_name for d in unreadable] == ["kbis.txt"]
     finding = next(f for f in state["findings"] if f.requirement_code == "KBIS")
     assert finding.status == "doubtful"
     assert "could not be read" in finding.reasoning
+
+
+def test_model_error_during_extraction_is_retried_then_fails_the_review():
+    llm = FakeLLM(fail_on_file="kbis.txt")
+    graph = build_graph(llm=llm, checkpointer=InMemorySaver())
+
+    with pytest.raises(TransientModelError):
+        graph.invoke(
+            {"review_id": "t", "required_documents": CHECKLIST, "submitted_files": FILES},
+            {"configurable": {"thread_id": "t"}},
+        )
+
+    # Three attempts for the failing file: the provider error was retried, not hidden.
+    assert llm.calls.count("extract") == 1 + 3
+
+
+def test_truncated_file_cannot_produce_a_missing_finding():
+    long_text = (
+        "Registration extract. "
+        + ("filler " * (MAX_CHARS_PER_FILE // 7 + 10))
+        + " Insurance certificate at the end."
+    )
+    files = [FILES[0], SubmittedFile(name="long.txt", text=long_text)]
+    llm = FakeLLM({"KBIS": CheckOutput(status="missing", reasoning="not seen")})
+    _, _, state = run(llm, files=files)
+
+    finding = next(f for f in state["findings"] if f.requirement_code == "KBIS")
+    assert finding.status == "doubtful"
+    assert "first 6000 characters of: long.txt" in finding.reasoning
 
 
 def test_all_files_unreadable_skips_the_model_and_asks_a_human():
@@ -186,6 +218,19 @@ def test_missing_optional_requirement_keeps_the_verdict_complete():
     assert state["verdict"] == "complete"
     assert statuses(state)["REFS"] == "missing"
     assert "REFS References (optional)" in state["report"]
+
+
+def test_report_escapes_html_in_reviewer_comments_and_evidence():
+    llm = FakeLLM({"KBIS": CheckOutput(status="doubtful", file_id="F2", evidence="<b>bold</b>")})
+    graph, config, _ = run(llm)
+    comment = '<img src=x onerror="alert(1)">'
+    final = graph.invoke(
+        Command(resume=[{"requirement_code": "KBIS", "status": "missing", "comment": comment}]), config
+    )
+
+    assert "<img" not in final["report"]
+    assert "&lt;img src=x onerror=&quot;" not in final["report"]  # quotes stay readable
+    assert '&lt;img src=x onerror="alert(1)"&gt;' in final["report"]
 
 
 def test_summary_failure_does_not_block_the_report():

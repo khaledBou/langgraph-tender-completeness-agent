@@ -26,6 +26,7 @@ from agent.state import CheckInput, ExtractionInput, ReviewState
 logger = logging.getLogger(__name__)
 
 # Characters of each file given to the check worker. Keeps the prompt bounded.
+# A file longer than this is marked truncated in the prompt and in the finding.
 MAX_CHARS_PER_FILE = 6000
 
 
@@ -52,17 +53,25 @@ def validate_decisions(doubtful: list[Finding], answer: object) -> list[HumanDec
     return decisions
 
 
-def _format_files_for_check(documents: list[ExtractedDocument], files: list[SubmittedFile]) -> str:
+def format_files_for_check(
+    documents: list[ExtractedDocument], files: list[SubmittedFile]
+) -> tuple[str, list[str]]:
+    """Render the readable files for the prompt. Also return the ids of truncated files."""
     text_by_id = {f.id: f.text for f in files}
     blocks = []
+    truncated = []
     for doc in documents:
         if doc.status != "ok":
             continue
-        text = text_by_id.get(doc.file_id, "")[:MAX_CHARS_PER_FILE]
-        blocks.append(
-            f'<file id="{doc.file_id}" name="{doc.file_name}" type="{doc.document_type}">\n{text}\n</file>'
-        )
-    return "\n\n".join(blocks) or "(no readable file)"
+        text = text_by_id.get(doc.file_id, "")
+        note = ""
+        if len(text) > MAX_CHARS_PER_FILE:
+            text = text[:MAX_CHARS_PER_FILE]
+            truncated.append(doc.file_id)
+            note = f' truncated="true" shown_characters="{MAX_CHARS_PER_FILE}"'
+        header = f'<file id="{doc.file_id}" name="{doc.file_name}" type="{doc.document_type}"{note}>'
+        blocks.append(f"{header}\n{text}\n</file>")
+    return "\n\n".join(blocks) or "(no readable file)", truncated
 
 
 def _format_findings(findings: list[Finding]) -> str:
@@ -89,22 +98,26 @@ class ReviewNodes:
         return [Send("extract_document", {"file": f}) for f in files]
 
     def extract_document(self, payload: ExtractionInput) -> dict:
+        """Describe one file.
+
+        A file without text is unreadable: that is a document problem, reported as such.
+        A model error is a technical problem: it propagates, the retry policy of the node
+        applies, and the review fails if the retries are exhausted.
+        """
         file = payload["file"]
-        try:
-            if not file.text.strip():
-                raise ValueError("The file has no text")
-            output = self.llm.with_structured_output(ExtractionOutput).invoke(
-                [
-                    SystemMessage(prompts.EXTRACTION_SYSTEM),
-                    HumanMessage(prompts.EXTRACTION_USER.format(file_name=file.name, text=file.text)),
-                ]
-            )
-            document = ExtractedDocument(file_id=file.id, file_name=file.name, **output.model_dump())
-        except Exception as exc:
-            logger.warning("Could not read %s: %s", file.name, exc)
+        if not file.text.strip():
             document = ExtractedDocument(
-                file_id=file.id, file_name=file.name, status="unreadable", error=str(exc)
+                file_id=file.id, file_name=file.name, status="unreadable", error="The file has no text"
             )
+            return {"extracted_documents": [document]}
+
+        output = self.llm.with_structured_output(ExtractionOutput).invoke(
+            [
+                SystemMessage(prompts.EXTRACTION_SYSTEM),
+                HumanMessage(prompts.EXTRACTION_USER.format(file_name=file.name, text=file.text)),
+            ]
+        )
+        document = ExtractedDocument(file_id=file.id, file_name=file.name, **output.model_dump())
         return {"extracted_documents": [document]}
 
     # Step 2: check every requirement in parallel against the readable files.
@@ -130,28 +143,17 @@ class ReviewNodes:
 
         # Rules first. The model is only called when there is something to read.
         if not readable and not unreadable:
-            return {
-                "findings": [
-                    Finding(
-                        requirement_code=code,
-                        status="missing",
-                        reasoning="No file was submitted",
-                        decided_by="rule",
-                    )
-                ]
-            }
+            finding = Finding(
+                requirement_code=code, status="missing", reasoning="No file was submitted", decided_by="rule"
+            )
+            return {"findings": [finding]}
         if not readable:
-            return {
-                "findings": [
-                    Finding(
-                        requirement_code=code,
-                        status="doubtful",
-                        reasoning="No file could be read",
-                        decided_by="rule",
-                    )
-                ]
-            }
+            finding = Finding(
+                requirement_code=code, status="doubtful", reasoning="No file could be read", decided_by="rule"
+            )
+            return {"findings": [finding]}
 
+        rendered, truncated = format_files_for_check(readable, files)
         output = self.llm.with_structured_output(CheckOutput).invoke(
             [
                 SystemMessage(prompts.CHECK_SYSTEM),
@@ -160,22 +162,28 @@ class ReviewNodes:
                         code=code,
                         label=requirement.label,
                         description=requirement.description,
-                        documents=_format_files_for_check(readable, files),
+                        documents=rendered,
                     )
                 ),
             ]
         )
-        return {"findings": [self._finding_from_output(code, output, files, bool(unreadable))]}
+        finding = self.finding_from_output(code, output, files, bool(unreadable), truncated)
+        return {"findings": [finding]}
 
     @staticmethod
-    def _finding_from_output(
-        code: str, output: CheckOutput, files: list[SubmittedFile], has_unreadable: bool
+    def finding_from_output(
+        code: str,
+        output: CheckOutput,
+        files: list[SubmittedFile],
+        has_unreadable: bool,
+        truncated: list[str],
     ) -> Finding:
         """Turn the model answer into a finding, after validating the evidence."""
         file = find_file(files, output.file_id)
         finding = Finding(
             requirement_code=code,
             status=output.status,
+            matched_file_id=file.id if file else None,
             matched_file=file.name if file else None,
             evidence=output.evidence,
             reasoning=output.reasoning,
@@ -199,6 +207,14 @@ class ReviewNodes:
                     "reasoning": "Not found in readable files, but one file could not be read",
                 }
             )
+        if output.status == "missing" and truncated:
+            names = ", ".join(f.name for f in files if f.id in truncated)
+            return finding.model_copy(
+                update={
+                    "status": "doubtful",
+                    "reasoning": f"Not found in the first {MAX_CHARS_PER_FILE} characters of: {names}",
+                }
+            )
         return finding
 
     # Step 3: ask a human when the workflow is not sure, then finalize.
@@ -211,29 +227,34 @@ class ReviewNodes:
         return "human_review" if has_doubt else "finalize"
 
     def human_review(self, state: ReviewState) -> dict:
+        """Pause until the reviewer answers. One interrupt per execution of the node.
+
+        An invalid answer is recorded in review_error and the conditional edge brings
+        the graph back here, so the next pause shows the error and reads a fresh answer.
+        """
         doubtful = [f for f in state["findings"] if f.status == "doubtful"]
         payload = {
             "reason": "Some findings need a human decision",
             "findings": [f.model_dump() for f in doubtful],
         }
-        # The graph stops here and resumes when the reviewer decisions arrive.
-        # Nothing happens before interrupt(), so re-running this node on resume is safe.
-        # An invalid answer pauses again with the error, instead of raising: a raised
-        # error would keep the first answer recorded and block any correction.
-        while True:
-            answer = interrupt(payload)
-            try:
-                decisions = validate_decisions(doubtful, answer)
-                break
-            except ValueError as exc:
-                payload = {**payload, "error": str(exc)}
-        return {"human_decisions": decisions, "status": "reviewed"}
+        if state.get("review_error"):
+            payload["error"] = state["review_error"]
+        answer = interrupt(payload)
+        try:
+            decisions = validate_decisions(doubtful, answer)
+        except ValueError as exc:
+            return {"review_error": str(exc)}
+        return {"human_decisions": decisions, "review_error": "", "status": "reviewed"}
+
+    def route_after_review(self, state: ReviewState) -> str:
+        return "human_review" if state.get("review_error") else "finalize"
 
     def finalize(self, state: ReviewState) -> dict:
         requirements = state["required_documents"]
         resolved = resolve_findings(requirements, state.get("findings", []), state.get("human_decisions", []))
         verdict = compute_verdict(requirements, resolved)
-        summary = self._write_summary(verdict, resolved)
+        # No file means nothing to summarise: the report is enough and the model is not called.
+        summary = self._write_summary(verdict, resolved) if state.get("submitted_files") else ""
         report = render_report(
             review_id=state.get("review_id", ""),
             requirements=requirements,
@@ -245,7 +266,7 @@ class ReviewNodes:
         return {"resolved_findings": resolved, "verdict": verdict, "report": report, "status": "completed"}
 
     def _write_summary(self, verdict: str, resolved: list[Finding]) -> str:
-        """Plain language summary. Optional: the report stands without it."""
+        """Plain language summary. Best effort: the report stands without it and there is no retry."""
         try:
             response = self.llm.invoke(
                 [

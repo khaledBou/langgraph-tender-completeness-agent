@@ -10,3 +10,4 @@ dist/
 .angular/
 backend/media/
 backend/staticfiles/
+backend/db.sqlite3

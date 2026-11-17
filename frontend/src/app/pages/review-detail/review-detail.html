@@ -33,6 +33,12 @@
       The workflow is reading the files and checking each requirement. This page refreshes on its own.
     </div>
   }
+  @if (connectionLost()) {
+    <div class="alert alert-warning">
+      The API did not answer the last refresh. Retrying every few seconds.
+      <button type="button" class="link" (click)="load()">Refresh now</button>
+    </div>
+  }
 
   @if (r.status === 'failed') {
     <div class="alert alert-danger">

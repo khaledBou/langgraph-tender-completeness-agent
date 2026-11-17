@@ -1,5 +1,7 @@
 """Deterministic verdict and report. The model never decides the outcome."""
 
+import html
+
 from agent.schemas import ExtractedDocument, Finding, HumanDecision, RequiredDocument, Verdict
 
 
@@ -43,6 +45,11 @@ def compute_verdict(requirements: list[RequiredDocument], resolved: list[Finding
     return "complete"
 
 
+def escape(text: str) -> str:
+    """Make a text safe to embed in the Markdown report. HTML tags become literal text."""
+    return html.escape(text, quote=False).replace("\n", " ")
+
+
 def render_report(
     review_id: str,
     requirements: list[RequiredDocument],
@@ -56,7 +63,7 @@ def render_report(
     lines = [f"# Completeness review {review_id}", "", f"Verdict: **{verdict}**", ""]
 
     if summary:
-        lines += ["## Summary", "", summary.strip(), ""]
+        lines += ["## Summary", "", escape(summary.strip()), ""]
 
     missing = [f for f in resolved if f.status != "present"]
     present = [f for f in resolved if f.status == "present"]
@@ -67,7 +74,7 @@ def render_report(
     for f in missing:
         req = label_by_code[f.requirement_code]
         kind = "mandatory" if req.mandatory else "optional"
-        lines.append(f"- {req.code} {req.label} ({kind}): {f.reasoning or f.status}")
+        lines.append(f"- {req.code} {escape(req.label)} ({kind}): {escape(f.reasoning or f.status)}")
     lines.append("")
 
     lines += ["## Documents present", ""]
@@ -75,24 +82,24 @@ def render_report(
         lines.append("None.")
     for f in present:
         req = label_by_code[f.requirement_code]
-        source = f.matched_file or "unknown file"
-        lines.append(f"- {req.code} {req.label}: {source}")
+        source = escape(f.matched_file or "unknown file")
+        lines.append(f"- {req.code} {escape(req.label)}: {source}")
         if f.evidence:
-            lines.append(f'  Evidence: "{f.evidence}"')
+            lines.append(f'  Evidence: "{escape(f.evidence)}"')
     lines.append("")
 
     reviewed = [f for f in resolved if f.decided_by == "reviewer"]
     if reviewed:
         lines += ["## Reviewer decisions", ""]
         for f in reviewed:
-            lines.append(f"- {f.requirement_code}: {f.status}. {f.reasoning}")
+            lines.append(f"- {f.requirement_code}: {f.status}. {escape(f.reasoning)}")
         lines.append("")
 
     unreadable = [d for d in documents if d.status == "unreadable"]
     if unreadable:
         lines += ["## Unreadable files", ""]
         for d in unreadable:
-            lines.append(f"- {d.file_name}: {d.error}")
+            lines.append(f"- {escape(d.file_name)}: {escape(d.error)}")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"

@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -36,7 +37,11 @@ class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
         data = serializer.validated_data
 
         with transaction.atomic():
-            review = Review.objects.create(candidate_name=data["candidate_name"], checklist=data["checklist"])
+            review = Review.objects.create(
+                candidate_name=data["candidate_name"],
+                checklist=data["checklist"],
+                requirements=data["checklist"].items,
+            )
             for upload in data.get("files", []):
                 content = upload.read()
                 upload.seek(0)
@@ -53,6 +58,11 @@ class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(
             ReviewDetailSerializer(review, context={"request": request}).data, status=status.HTTP_201_CREATED
         )
+
+    @action(detail=True, methods=["get"], url_path=r"files/(?P<file_id>\d+)/download")
+    def download(self, request: Request, pk=None, file_id=None) -> FileResponse:
+        review_file = self.get_object().files.get(pk=file_id)
+        return FileResponse(review_file.file.open("rb"), as_attachment=False, filename=review_file.name)
 
     @action(detail=True, methods=["post"])
     def decisions(self, request: Request, pk=None) -> Response:

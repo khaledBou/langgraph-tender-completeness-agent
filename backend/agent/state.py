@@ -23,6 +23,8 @@ class ReviewState(TypedDict, total=False):
     extracted_documents: Annotated[list[ExtractedDocument], add]
     findings: Annotated[list[Finding], add]
     human_decisions: list[HumanDecision]
+    # Set when the reviewer answer was refused. Routes back to human_review.
+    review_error: str
     # Authoritative result, written once by the finalize node.
     resolved_findings: list[Finding]
     verdict: Verdict

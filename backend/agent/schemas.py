@@ -44,7 +44,10 @@ class Finding(BaseModel):
 
     requirement_code: str
     status: FindingStatus
-    matched_file: str | None = Field(default=None, description="Name of the file that covers the requirement")
+    matched_file_id: str | None = Field(
+        default=None, description="Identifier of the file that covers the requirement"
+    )
+    matched_file: str | None = Field(default=None, description="Name of that file")
     evidence: str = Field(default="", description="Passage of the file that supports the status")
     reasoning: str = Field(default="", description="Why this status was chosen")
     decided_by: Literal["rule", "model", "reviewer"] = "model"

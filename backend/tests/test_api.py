@@ -1,10 +1,13 @@
 """API tests. The workflow runs inside the request with the deterministic model."""
 
+from io import StringIO
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
-from reviews.models import Review
+from reviews import services
+from reviews.models import Checklist, Review
 
 
 @pytest.fixture(autouse=True)
@@ -108,3 +111,104 @@ def test_decisions_resume_a_paused_review(client):
 def test_unknown_checklist_is_rejected(client):
     response = client.post("/api/reviews/", {"candidate_name": "X", "checklist": "nope"}, format="multipart")
     assert response.status_code == 400
+
+
+def test_files_are_downloaded_through_the_api(client):
+    files = [upload("dc1.txt", "Application letter DC1 signed")]
+    body = create_review(client, files).json()
+    url = body["files"][0]["url"]
+
+    assert url == f"/api/reviews/{body['id']}/files/{body['files'][0]['id']}/download/"
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"".join(response.streaming_content) == b"Application letter DC1 signed"
+
+
+def test_requirements_are_frozen_at_creation(client):
+    body = create_review(client, [upload("dc1.txt", "Application letter")]).json()
+    assert [r["code"] for r in body["requirements"]] == ["DC1", "DC2", "KBIS", "INSURANCE", "REFERENCES"]
+
+    checklist = Checklist.objects.get(slug="default")
+    checklist.items = [{"code": "NEW", "label": "New requirement", "description": "", "mandatory": True}]
+    checklist.save()
+
+    detail = client.get(f"/api/reviews/{body['id']}/").json()
+    assert [r["code"] for r in detail["requirements"]] == ["DC1", "DC2", "KBIS", "INSURANCE", "REFERENCES"]
+
+
+def test_model_failure_marks_the_review_failed(client, monkeypatch):
+    from agent.testing import FakeLLM
+
+    monkeypatch.setattr("agent.graph.get_llm", lambda: FakeLLM(fail_on_file="dc1.txt"))
+    body = create_review(client, [upload("dc1.txt", "Application letter")]).json()
+
+    assert body["status"] == "failed"
+    assert "provider unavailable" in body["error"]
+
+
+def recover() -> str:
+    out = StringIO()
+    call_command("recover_reviews", stdout=out)
+    return out.getvalue()
+
+
+def test_recover_restores_a_pause_left_in_running(client):
+    files = [SimpleUploadedFile("scan.xyz", b"\x00", content_type="application/octet-stream")]
+    review = Review.objects.get(pk=create_review(client, files).json()["id"])
+    assert review.status == "waiting_for_human"
+    Review.objects.filter(pk=review.id).update(status="running", pending_review=None)
+
+    assert "restored the pause" in recover()
+    review.refresh_from_db()
+    assert review.status == "waiting_for_human"
+    assert len(review.pending_review["findings"]) == 5
+
+
+def test_recover_stores_a_finished_result_left_in_running(client):
+    review = Review.objects.get(
+        pk=create_review(client, [upload("dc1.txt", "Application letter")]).json()["id"]
+    )
+    assert review.status == "completed"
+    Review.objects.filter(pk=review.id).update(status="running", report="", verdict="")
+
+    assert "stored the finished result" in recover()
+    review.refresh_from_db()
+    assert review.status == "completed"
+    assert review.verdict == "complete"
+    assert review.report.startswith("# Completeness review")
+
+
+def test_recover_starts_a_review_that_never_ran(client):
+    checklist = Checklist.objects.get(slug="default")
+    review = Review.objects.create(candidate_name="Stuck", checklist=checklist, requirements=checklist.items)
+    Review.objects.filter(pk=review.id).update(status="running")
+
+    assert "restarted, now completed" in recover()
+    review.refresh_from_db()
+    assert review.status == "completed"
+    assert review.verdict == "incomplete"
+
+
+def test_recover_reports_nothing_to_do(client):
+    assert "Nothing to recover" in recover()
+
+
+def test_decisions_are_persisted_before_the_resume(client):
+    files = [SimpleUploadedFile("scan.xyz", b"\x00", content_type="application/octet-stream")]
+    review = Review.objects.get(pk=create_review(client, files).json()["id"])
+    decisions = [
+        {"requirement_code": c, "status": "missing", "comment": ""}
+        for c in ["DC1", "DC2", "KBIS", "INSURANCE", "REFERENCES"]
+    ]
+
+    services.resume_review(review, decisions)
+
+    review.refresh_from_db()
+    assert review.status == "completed"
+    assert [d["requirement_code"] for d in review.human_decisions] == [
+        "DC1",
+        "DC2",
+        "KBIS",
+        "INSURANCE",
+        "REFERENCES",
+    ]

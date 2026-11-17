@@ -11,11 +11,15 @@ class ChecklistSerializer(serializers.ModelSerializer):
 
 
 class ReviewFileSerializer(serializers.ModelSerializer):
-    url = serializers.FileField(source="file", read_only=True)
+    url = serializers.SerializerMethodField()
 
     class Meta:
         model = ReviewFile
         fields = ["id", "name", "url", "extraction_error"]
+
+    def get_url(self, obj: ReviewFile) -> str:
+        # Relative path, served by the API itself. Works behind any proxy.
+        return f"/api/reviews/{obj.review_id}/files/{obj.id}/download/"
 
 
 class ReviewListSerializer(serializers.ModelSerializer):
@@ -28,7 +32,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
 
 class ReviewDetailSerializer(ReviewListSerializer):
     files = ReviewFileSerializer(many=True, read_only=True)
-    requirements = serializers.JSONField(source="checklist.items", read_only=True)
+    requirements = serializers.JSONField(read_only=True)
 
     class Meta(ReviewListSerializer.Meta):
         fields = ReviewListSerializer.Meta.fields + [

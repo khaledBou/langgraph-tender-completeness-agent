@@ -13,12 +13,15 @@ import argparse
 import os
 import sys
 
+import psycopg
 from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
+from psycopg.rows import dict_row
 
 from agent.graph import build_graph
 from agent.schemas import CheckOutput, RequiredDocument, SubmittedFile
+from agent.serde import make_serializer
 from agent.testing import FakeLLM
 
 CHECKLIST = [
@@ -49,7 +52,8 @@ def main() -> int:
     database_url = os.environ["DATABASE_URL"]
     config = {"configurable": {"thread_id": args.thread_id}}
 
-    with PostgresSaver.from_conn_string(database_url) as checkpointer:
+    with psycopg.connect(database_url, autocommit=True, row_factory=dict_row) as conn:
+        checkpointer = PostgresSaver(conn, serde=make_serializer())
         checkpointer.setup()
         graph = build_graph(llm=make_llm(), checkpointer=checkpointer)
 

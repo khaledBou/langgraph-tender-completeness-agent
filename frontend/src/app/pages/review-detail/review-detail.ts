@@ -2,10 +2,9 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { marked } from 'marked';
-import { Subscription, interval, switchMap } from 'rxjs';
+import { Subscription, catchError, interval, of, switchMap } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
 import { DecisionStatus, Finding, HumanDecision, RequiredDocument, Review } from '../../core/models';
@@ -21,7 +20,6 @@ const POLL_MS = 3000;
 })
 export class ReviewDetail {
   private readonly api = inject(ApiService);
-  private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
   private polling: Subscription | null = null;
 
@@ -31,6 +29,8 @@ export class ReviewDetail {
   readonly error = signal('');
   readonly sending = signal(false);
   readonly decisionError = signal('');
+  /** True when the last refresh failed. Polling goes on and clears it on success. */
+  readonly connectionLost = signal(false);
 
   /** Decisions typed by the reviewer, keyed by requirement code. */
   readonly decisions = signal<Record<string, { status: DecisionStatus | ''; comment: string }>>({});
@@ -46,9 +46,10 @@ export class ReviewDetail {
     return review.resolved_findings.length > 0 ? review.resolved_findings : review.findings;
   });
 
-  readonly reportHtml = computed<SafeHtml>(() => {
+  /** Markdown turned into HTML. Angular sanitises it when bound to [innerHTML]. */
+  readonly reportHtml = computed<string>(() => {
     const report = this.review()?.report ?? '';
-    return this.sanitizer.bypassSecurityTrustHtml(marked.parse(report, { async: false }) as string);
+    return marked.parse(report, { async: false }) as string;
   });
 
   readonly allDecided = computed(() => {
@@ -116,10 +117,22 @@ export class ReviewDetail {
     if (active && !this.polling) {
       this.polling = interval(POLL_MS)
         .pipe(
-          switchMap(() => this.api.getReview(review.id)),
+          switchMap(() =>
+            this.api.getReview(review.id).pipe(
+              catchError(() => {
+                this.connectionLost.set(true);
+                return of(null);
+              }),
+            ),
+          ),
           takeUntilDestroyed(this.destroyRef),
         )
-        .subscribe((updated) => this.apply(updated));
+        .subscribe((updated) => {
+          if (updated) {
+            this.connectionLost.set(false);
+            this.apply(updated);
+          }
+        });
     } else if (!active && this.polling) {
       this.polling.unsubscribe();
       this.polling = null;

@@ -9,6 +9,10 @@ from langchain_core.runnables import RunnableLambda
 from agent.schemas import CheckOutput, ExtractionOutput
 
 
+class TransientModelError(Exception):
+    """Stands for a provider error that the retry policy should retry."""
+
+
 class FakeLLM:
     """Mimics the two methods the nodes use: with_structured_output() and invoke().
 
@@ -37,7 +41,7 @@ class FakeLLM:
         text = messages[-1].content
         name = text.split("File name: ")[1].split("\n")[0]
         if name == self.fail_on_file:
-            raise RuntimeError("model error")
+            raise TransientModelError("provider unavailable")
         return ExtractionOutput(document_type=f"type of {name}", summary=f"summary of {name}")
 
     def _check(self, messages):

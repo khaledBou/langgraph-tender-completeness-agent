@@ -20,9 +20,12 @@ Rules:
 - Answer "present" only when one file clearly matches the requirement. Give its identifier
   and copy, word for word, the passage of that file that proves it. The passage will be
   checked against the file, so do not paraphrase it.
+- The passage must establish the requirement itself. A sentence that only mentions the
+  document, announces it, or says it is not included does not prove anything.
 - Answer "missing" when no file is related to the requirement.
 - Answer "doubtful" when a file is related but you cannot confirm it satisfies the
   requirement (wrong period, partial, ambiguous type). A human will decide.
+- A file marked truncated is shown only in part. Do not conclude "missing" from it alone.
 - Checking that a document is present is not checking that it is authentic or legally valid."""
 
 CHECK_USER = """Requirement {code}: {label}
