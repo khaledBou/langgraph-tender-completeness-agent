@@ -124,6 +124,27 @@ def test_files_are_downloaded_through_the_api(client):
     assert b"".join(response.streaming_content) == b"Application letter DC1 signed"
 
 
+def test_submitted_html_is_served_as_an_attachment_never_inline(client):
+    html = upload("proof.html", "<script>alert(1)</script>")
+    body = create_review(client, [html]).json()
+
+    response = client.get(body["files"][0]["url"])
+    assert response.status_code == 200
+    assert response["Content-Disposition"].startswith("attachment;")
+    assert "proof.html" in response["Content-Disposition"]
+
+
+def test_unknown_file_gives_404(client):
+    body = create_review(client, [upload("dc1.txt", "Application letter")]).json()
+    other = Review.objects.get(pk=create_review(client, [upload("x.txt", "other")]).json()["id"])
+
+    assert client.get(f"/api/reviews/{body['id']}/files/999/download/").status_code == 404
+    # A file of another review is not reachable through this review.
+    assert (
+        client.get(f"/api/reviews/{body['id']}/files/{other.files.first().id}/download/").status_code == 404
+    )
+
+
 def test_requirements_are_frozen_at_creation(client):
     body = create_review(client, [upload("dc1.txt", "Application letter")]).json()
     assert [r["code"] for r in body["requirements"]] == ["DC1", "DC2", "KBIS", "INSURANCE", "REFERENCES"]
@@ -162,6 +183,45 @@ def test_recover_restores_a_pause_left_in_running(client):
     review.refresh_from_db()
     assert review.status == "waiting_for_human"
     assert len(review.pending_review["findings"]) == 5
+
+
+def test_recover_restores_intermediate_results_with_the_pause(client):
+    files = [SimpleUploadedFile("scan.xyz", b"\x00", content_type="application/octet-stream")]
+    review = Review.objects.get(pk=create_review(client, files).json()["id"])
+    # Crash simulated right after the checkpoint, before the first Django save.
+    Review.objects.filter(pk=review.id).update(
+        status="running", pending_review=None, findings=[], extracted_documents=[]
+    )
+
+    recover()
+    review.refresh_from_db()
+    assert review.status == "waiting_for_human"
+    assert len(review.findings) == 5
+    assert len(review.extracted_documents) == 1
+    assert review.pending_review["interrupt_id"]
+
+
+def test_recover_sends_decisions_accepted_before_a_crash(client, monkeypatch):
+    files = [SimpleUploadedFile("scan.xyz", b"\x00", content_type="application/octet-stream")]
+    review = Review.objects.get(pk=create_review(client, files).json()["id"])
+    decisions = [
+        {"requirement_code": c, "status": "missing", "comment": ""}
+        for c in ["DC1", "DC2", "KBIS", "INSURANCE", "REFERENCES"]
+    ]
+
+    # The transition persists the decisions, then the process dies before dispatch.
+    monkeypatch.setattr(services, "_dispatch", lambda *args, **kwargs: None)
+    services.resume_review(review, decisions)
+    review.refresh_from_db()
+    assert review.status == "running"
+    assert review.pending_decisions["decisions"] == decisions
+
+    assert "resumed with the stored decisions, now completed" in recover()
+    review.refresh_from_db()
+    assert review.status == "completed"
+    assert review.pending_decisions is None
+    assert review.verdict == "incomplete"
+    assert [f["decided_by"] for f in review.resolved_findings] == ["reviewer"] * 5
 
 
 def test_recover_stores_a_finished_result_left_in_running(client):

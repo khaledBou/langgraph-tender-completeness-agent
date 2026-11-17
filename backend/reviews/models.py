@@ -48,6 +48,9 @@ class Review(models.Model):
     extracted_documents = models.JSONField(default=list, blank=True)
     findings = models.JSONField(default=list, blank=True)
     pending_review = models.JSONField(null=True, blank=True, help_text="Interrupt payload while paused")
+    # Decisions accepted by the API but not yet consumed by the workflow, with the id of
+    # the interrupt they answer. Cleared once the workflow has run with them.
+    pending_decisions = models.JSONField(null=True, blank=True)
     human_decisions = models.JSONField(default=list, blank=True)
     resolved_findings = models.JSONField(default=list, blank=True)
     report = models.TextField(blank=True)

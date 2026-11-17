@@ -65,7 +65,8 @@ The `human_review` node calls `interrupt()` once with the doubtful findings. The
 - A model error during extraction or check is a technical problem. The node retry policy retries it three times, then the review fails with the error. The optional summary has no retry: when it fails, the report is produced without it.
 - Parallel workers are bounded with `max_concurrency`.
 - A review that fails is marked failed with the error message.
-- If the service stops while a review is running, the review row stays "running". The `recover_reviews` command reconciles such reviews with their checkpoint: no checkpoint means restart from the stored inputs, a pause means restore the waiting status, a finished checkpoint means store the result, a checkpoint in the middle means continue the workflow. Run it after a restart, when no worker is active.
+- If the service stops while a review is running, the review row stays "running". The `recover_reviews` command reconciles such reviews with their checkpoint: no checkpoint means restart from the stored inputs, a pause means restore the waiting status with its intermediate results, a finished checkpoint means store the result, a checkpoint in the middle means continue the workflow. Decisions accepted by the API are stored on the review with the id of the pause they answer; when the pause is still current, the command sends them instead of asking again. Run the command after a restart, when no worker is active and the service accepts no new review.
+- Submitted files are always served as attachments, so an HTML or SVG file can never run as a page of the application.
 
 ## API
 

@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -61,8 +62,13 @@ class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["get"], url_path=r"files/(?P<file_id>\d+)/download")
     def download(self, request: Request, pk=None, file_id=None) -> FileResponse:
-        review_file = self.get_object().files.get(pk=file_id)
-        return FileResponse(review_file.file.open("rb"), as_attachment=False, filename=review_file.name)
+        """Return the submitted file as an attachment.
+
+        Always an attachment: a submitted HTML or SVG file must never be rendered as a
+        page of this application.
+        """
+        review_file = get_object_or_404(self.get_object().files, pk=file_id)
+        return FileResponse(review_file.file.open("rb"), as_attachment=True, filename=review_file.name)
 
     @action(detail=True, methods=["post"])
     def decisions(self, request: Request, pk=None) -> Response:

@@ -43,6 +43,9 @@ def _transition(
             review.started_at = timezone.now()
         if decisions is not None:
             # Persisted before the workflow records them, so a crash loses nothing.
+            # The interrupt id ties them to the pause they answer.
+            interrupt_id = (review.pending_review or {}).get("interrupt_id")
+            review.pending_decisions = {"interrupt_id": interrupt_id, "decisions": decisions}
             review.human_decisions = decisions
         review.save()
         return review
@@ -113,9 +116,11 @@ def store_state(review: Review, state: dict) -> None:
     ] or review.human_decisions
     review.error = ""
 
+    review.pending_decisions = None
     if "__interrupt__" in state:
+        interrupt = state["__interrupt__"][0]
         review.status = Review.Status.WAITING_FOR_HUMAN
-        review.pending_review = state["__interrupt__"][0].value
+        review.pending_review = {**interrupt.value, "interrupt_id": interrupt.id}
     else:
         review.status = Review.Status.COMPLETED
         review.pending_review = None
@@ -129,8 +134,8 @@ def store_state(review: Review, state: dict) -> None:
 def recover_review(review: Review) -> str:
     """Reconcile a review stuck in pending or running with its checkpoint.
 
-    Run it only when no worker is executing the review (after a restart).
-    Returns a short description of what was done.
+    Run it only when no worker is executing the review (after a restart) and while the
+    service accepts no new work. Returns a short description of what was done.
     """
     graph = build_graph(checkpointer=get_checkpointer())
     config = run_config(review)
@@ -143,10 +148,15 @@ def recover_review(review: Review) -> str:
         return f"restarted, now {review.status}"
 
     if snapshot.interrupts:
-        # Paused on human review: expose the pause again.
-        review.status = Review.Status.WAITING_FOR_HUMAN
-        review.pending_review = snapshot.interrupts[0].value
-        review.save()
+        interrupt = snapshot.interrupts[0]
+        pending = review.pending_decisions or {}
+        if pending.get("interrupt_id") == interrupt.id:
+            # Decisions were accepted for this pause but never sent: send them now.
+            state = graph.invoke(Command(resume=pending["decisions"]), config)
+            store_state(review, state)
+            return f"resumed with the stored decisions, now {review.status}"
+        # Paused on human review: expose the pause and its intermediate results again.
+        store_state(review, {**snapshot.values, "__interrupt__": [interrupt]})
         return "restored the pause"
 
     if not snapshot.next:
