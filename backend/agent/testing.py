@@ -25,7 +25,7 @@ class FakeLLM:
         self.fail_on_file = fail_on_file
         self.calls: list[str] = []
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, **kwargs):
         if schema is ExtractionOutput:
             return RunnableLambda(self._extract)
         if schema is CheckOutput:

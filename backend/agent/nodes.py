@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 # A file longer than this is marked truncated in the prompt and in the finding.
 MAX_CHARS_PER_FILE = 6000
 
+# Structured outputs through the provider's JSON schema mode. Forced tool calls are
+# not supported by the current Claude models, and JSON schema mode works with Ollama too.
+STRUCTURED_OUTPUT_METHOD = "json_schema"
+
 
 def number_files(files: list[SubmittedFile]) -> list[SubmittedFile]:
     """Give every file a stable identifier F1, F2, ... in submission order."""
@@ -111,7 +115,7 @@ class ReviewNodes:
             )
             return {"extracted_documents": [document]}
 
-        output = self.llm.with_structured_output(ExtractionOutput).invoke(
+        output = self.llm.with_structured_output(ExtractionOutput, method=STRUCTURED_OUTPUT_METHOD).invoke(
             [
                 SystemMessage(prompts.EXTRACTION_SYSTEM),
                 HumanMessage(prompts.EXTRACTION_USER.format(file_name=file.name, text=file.text)),
@@ -154,7 +158,7 @@ class ReviewNodes:
             return {"findings": [finding]}
 
         rendered, truncated = format_files_for_check(readable, files)
-        output = self.llm.with_structured_output(CheckOutput).invoke(
+        output = self.llm.with_structured_output(CheckOutput, method=STRUCTURED_OUTPUT_METHOD).invoke(
             [
                 SystemMessage(prompts.CHECK_SYSTEM),
                 HumanMessage(
@@ -276,7 +280,7 @@ class ReviewNodes:
                     ),
                 ]
             )
-            return response.content if isinstance(response.content, str) else ""
+            return response.text
         except Exception as exc:
             logger.warning("Summary not written: %s", exc)
             return ""
