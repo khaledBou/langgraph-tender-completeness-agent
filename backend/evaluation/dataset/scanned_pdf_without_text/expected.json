@@ -1,0 +1,43 @@
+{
+  "group": "unreadable",
+  "description": "The registration extract is a scan without a text layer",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "doubtful",
+      "accepted": [
+        "doubtful"
+      ],
+      "decision": "missing"
+    },
+    "INSURANCE": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "REFERENCES": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

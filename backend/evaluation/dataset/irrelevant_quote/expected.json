@@ -1,0 +1,44 @@
+{
+  "group": "false_present",
+  "description": "A note points to a website instead of listing references",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "INSURANCE": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "REFERENCES": {
+      "expected": "missing",
+      "accepted": [
+        "missing",
+        "doubtful"
+      ],
+      "decision": "missing"
+    }
+  },
+  "final_verdict": "complete"
+}

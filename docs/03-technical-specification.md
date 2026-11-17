@@ -34,6 +34,7 @@ State fields:
 | Field | Type | Written by |
 |---|---|---|
 | review_id | str | input |
+| reference_date | str | input, defaults to today; used for time based requirements |
 | required_documents | list[RequiredDocument] | input |
 | submitted_files | list[SubmittedFile] | input |
 | extracted_documents | list[ExtractedDocument], append reducer | extract_document workers |

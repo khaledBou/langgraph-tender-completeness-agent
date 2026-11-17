@@ -1,0 +1,44 @@
+{
+  "group": "false_present",
+  "description": "The letter mentions the insurance certificate, which is not there",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "INSURANCE": {
+      "expected": "missing",
+      "accepted": [
+        "missing",
+        "doubtful"
+      ],
+      "decision": "missing"
+    },
+    "REFERENCES": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

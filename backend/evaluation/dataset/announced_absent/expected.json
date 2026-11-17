@@ -1,0 +1,44 @@
+{
+  "group": "false_present",
+  "description": "A note says the registration extract is not included",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "missing",
+      "accepted": [
+        "missing",
+        "doubtful"
+      ],
+      "decision": "missing"
+    },
+    "INSURANCE": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "REFERENCES": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

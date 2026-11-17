@@ -28,7 +28,9 @@ Rules:
 - A file marked truncated is shown only in part. Do not conclude "missing" from it alone.
 - Checking that a document is present is not checking that it is authentic or legally valid."""
 
-CHECK_USER = """Requirement {code}: {label}
+CHECK_USER = """Reference date: {reference_date}
+
+Requirement {code}: {label}
 {description}
 
 Submitted files:

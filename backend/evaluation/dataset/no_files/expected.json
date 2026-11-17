@@ -1,0 +1,43 @@
+{
+  "group": "missing",
+  "description": "Nothing submitted",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "missing",
+      "accepted": [
+        "missing"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "missing",
+      "accepted": [
+        "missing"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "missing",
+      "accepted": [
+        "missing"
+      ],
+      "decision": null
+    },
+    "INSURANCE": {
+      "expected": "missing",
+      "accepted": [
+        "missing"
+      ],
+      "decision": null
+    },
+    "REFERENCES": {
+      "expected": "missing",
+      "accepted": [
+        "missing"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

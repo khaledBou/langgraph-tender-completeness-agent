@@ -1,0 +1,45 @@
+{
+  "group": "doubtful",
+  "description": "Insurance for 2025, extract older than three months",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "KBIS": {
+      "expected": "doubtful",
+      "accepted": [
+        "doubtful",
+        "missing"
+      ],
+      "decision": "missing"
+    },
+    "INSURANCE": {
+      "expected": "doubtful",
+      "accepted": [
+        "doubtful",
+        "missing"
+      ],
+      "decision": "missing"
+    },
+    "REFERENCES": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

@@ -17,6 +17,8 @@ class ReviewState(TypedDict, total=False):
     """State of one completeness review. One graph thread equals one review."""
 
     review_id: str
+    # Date used for time based requirements (validity, age of a document). Defaults to today.
+    reference_date: str
     required_documents: list[RequiredDocument]
     submitted_files: list[SubmittedFile]
     # Filled by parallel workers, so both lists use an append reducer.
@@ -44,3 +46,4 @@ class CheckInput(TypedDict):
     requirement: RequiredDocument
     documents: list[ExtractedDocument]
     files: list[SubmittedFile]
+    reference_date: str

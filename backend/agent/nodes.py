@@ -5,6 +5,7 @@ which keeps the graph testable without network access.
 """
 
 import logging
+from datetime import date
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -93,7 +94,11 @@ class ReviewNodes:
     def start(self, state: ReviewState) -> dict:
         if not state.get("required_documents"):
             raise ValueError("The checklist is empty")
-        return {"submitted_files": number_files(state.get("submitted_files", [])), "status": "extracting"}
+        return {
+            "submitted_files": number_files(state.get("submitted_files", [])),
+            "reference_date": state.get("reference_date") or date.today().isoformat(),
+            "status": "extracting",
+        }
 
     def fan_out_extraction(self, state: ReviewState) -> list[Send] | str:
         files = state.get("submitted_files", [])
@@ -133,7 +138,15 @@ class ReviewNodes:
         documents = state.get("extracted_documents", [])
         files = state.get("submitted_files", [])
         return [
-            Send("check_requirement", {"requirement": r, "documents": documents, "files": files})
+            Send(
+                "check_requirement",
+                {
+                    "requirement": r,
+                    "documents": documents,
+                    "files": files,
+                    "reference_date": state["reference_date"],
+                },
+            )
             for r in state["required_documents"]
         ]
 
@@ -163,6 +176,7 @@ class ReviewNodes:
                 SystemMessage(prompts.CHECK_SYSTEM),
                 HumanMessage(
                     prompts.CHECK_USER.format(
+                        reference_date=payload["reference_date"],
                         code=code,
                         label=requirement.label,
                         description=requirement.description,

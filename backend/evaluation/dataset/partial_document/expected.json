@@ -1,0 +1,43 @@
+{
+  "group": "doubtful",
+  "description": "DC2 without the turnover figures",
+  "reference_date": "2026-11-17",
+  "expectations": {
+    "DC1": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "DC2": {
+      "expected": "doubtful",
+      "accepted": [
+        "doubtful"
+      ],
+      "decision": "missing"
+    },
+    "KBIS": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "INSURANCE": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    },
+    "REFERENCES": {
+      "expected": "present",
+      "accepted": [
+        "present"
+      ],
+      "decision": null
+    }
+  },
+  "final_verdict": "incomplete"
+}

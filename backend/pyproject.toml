@@ -35,3 +35,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Document texts and report lines are long on purpose.
+"evaluation/*" = ["E501"]
