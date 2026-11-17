@@ -15,4 +15,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Specifications: expression of need, functional and technical specifications, Figma mockups.
 - Evaluation set of twenty labelled applications with a runner, auditable results and the first run with Claude.
 - Deployment guide for Scaleway.
+- LangGraph Studio support through `langgraph.json` and the `make studio` target.
 - Recovery command for reviews interrupted by a restart of the service.

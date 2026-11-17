@@ -50,6 +50,21 @@ def test_complete_application_goes_straight_to_report():
     assert llm.calls.count("summary") == 1
 
 
+def test_plain_dict_input_is_accepted():
+    """The LangGraph server passes the input as JSON, so dicts must work like models."""
+    graph = build_graph(llm=FakeLLM(), checkpointer=InMemorySaver())
+    state = graph.invoke(
+        {
+            "review_id": "json",
+            "required_documents": [{"code": "DC1", "label": "Application letter"}],
+            "submitted_files": [{"name": "dc1.txt", "text": "Application letter signed"}],
+        },
+        {"configurable": {"thread_id": "json"}},
+    )
+    assert state["verdict"] == "complete"
+    assert state["submitted_files"][0].id == "F1"
+
+
 def test_files_get_stable_identifiers():
     _, _, state = run(FakeLLM())
     assert [f.id for f in state["submitted_files"]] == ["F1", "F2"]

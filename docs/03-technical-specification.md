@@ -82,6 +82,10 @@ The `human_review` node calls `interrupt()` once with the doubtful findings. The
 
 The workflow runs in a background thread. The review row is locked when a run or a resume starts, so two resumes cannot overlap. The requirements are copied on the review at creation: a later change of the checklist does not alter past reviews.
 
+## LangGraph Studio
+
+`backend/langgraph.json` declares the graph for the LangGraph CLI. `agent/studio.py` exports the compiled graph without a checkpointer, because the Agent Server supplies its own. The start node accepts plain dictionaries as well as models, since the server passes the input as JSON.
+
 ## Checkpoint serialization
 
 The state holds Pydantic models. The checkpointer uses a serializer with an explicit allowlist of these types, so they are rebuilt from PostgreSQL without warnings and nothing else can be rebuilt.

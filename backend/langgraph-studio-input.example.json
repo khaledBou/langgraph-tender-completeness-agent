@@ -1,0 +1,13 @@
+{
+  "review_id": "studio-demo",
+  "reference_date": "2026-11-17",
+  "required_documents": [
+    {"code": "DC1", "label": "Application letter (DC1 form)", "description": "Signed letter of application identifying the candidate and the lot.", "mandatory": true},
+    {"code": "KBIS", "label": "Company registration extract", "description": "Registration certificate issued less than three months ago.", "mandatory": true},
+    {"code": "INSURANCE", "label": "Professional liability insurance certificate", "description": "Certificate valid for the current year.", "mandatory": true}
+  ],
+  "submitted_files": [
+    {"name": "dc1.txt", "text": "APPLICATION LETTER (DC1)\n\nCandidate: Volt Services SAS, 12 rue des Forges, 44000 Nantes\nThe candidate applies for lot 2 and declares that it is not subject to any exclusion from procurement procedures.\nSigned in Nantes on 2 November 2026, Marie Dupont, Managing Director"},
+    {"name": "kbis.txt", "text": "COMPANY REGISTRATION EXTRACT\nRegistry of commerce and companies of Nantes\nCompany name: VOLT SERVICES\nRegistration number: 812 345 678 R.C.S. Nantes\nExtract issued on 3 March 2026"}
+  ]
+}

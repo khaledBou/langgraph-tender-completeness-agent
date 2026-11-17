@@ -104,6 +104,16 @@ uv run python -m scripts.run_review examples/incomplete_application
 
 An open-source model can be used through Ollama by setting `LLM_PROVIDER=ollama`. The provider is implemented and the tests cover the workflow with a model double. The evaluation results above were obtained with Claude only.
 
+## Open the graph in LangGraph Studio
+
+The workflow also runs on the LangGraph Agent Server, which gives the graph view, step by step execution and thread inspection of LangGraph Studio.
+
+```bash
+make studio
+```
+
+The command starts the server on port 2024 and prints the Studio link. Studio runs in the browser and needs a free LangSmith account. In Studio, paste the content of `backend/langgraph-studio-input.example.json` as input: the run pauses on the registration extract, and the Resume button with `[{"requirement_code": "KBIS", "status": "missing", "comment": "older than three months"}]` completes it. The same can be done against the server API with `POST /threads/{id}/runs/wait`.
+
 ## Tests
 
 ```bash

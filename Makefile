@@ -71,4 +71,7 @@ eval: ## Run the evaluation set with the configured model
 shell: ## Open a Django shell
 	$(BACKEND) python manage.py shell
 
-.PHONY: help env up down destroy logs ps db install migrate checklists backend-dev frontend-dev test test-all lint format review eval shell
+studio: ## Serve the graph for LangGraph Studio on port 2024
+	$(BACKEND) langgraph dev --port 2024
+
+.PHONY: help env up down destroy logs ps db install migrate checklists backend-dev frontend-dev test test-all lint format review eval shell studio

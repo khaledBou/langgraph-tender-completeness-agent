@@ -20,6 +20,7 @@ from agent.schemas import (
     ExtractionOutput,
     Finding,
     HumanDecision,
+    RequiredDocument,
     SubmittedFile,
 )
 from agent.state import CheckInput, ExtractionInput, ReviewState
@@ -35,9 +36,15 @@ MAX_CHARS_PER_FILE = 6000
 STRUCTURED_OUTPUT_METHOD = "json_schema"
 
 
-def number_files(files: list[SubmittedFile]) -> list[SubmittedFile]:
-    """Give every file a stable identifier F1, F2, ... in submission order."""
-    return [f.model_copy(update={"id": f"F{i}"}) for i, f in enumerate(files, start=1)]
+def number_files(files: list) -> list[SubmittedFile]:
+    """Give every file a stable identifier F1, F2, ... in submission order.
+
+    Accepts models or plain dicts: the input arrives as JSON through the LangGraph server.
+    """
+    return [
+        SubmittedFile.model_validate(f).model_copy(update={"id": f"F{i}"})
+        for i, f in enumerate(files, start=1)
+    ]
 
 
 def validate_decisions(doubtful: list[Finding], answer: object) -> list[HumanDecision]:
@@ -95,6 +102,7 @@ class ReviewNodes:
         if not state.get("required_documents"):
             raise ValueError("The checklist is empty")
         return {
+            "required_documents": [RequiredDocument.model_validate(r) for r in state["required_documents"]],
             "submitted_files": number_files(state.get("submitted_files", [])),
             "reference_date": state.get("reference_date") or date.today().isoformat(),
             "status": "extracting",
