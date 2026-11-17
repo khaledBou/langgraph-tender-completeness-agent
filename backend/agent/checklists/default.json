@@ -1,0 +1,32 @@
+[
+  {
+    "code": "DC1",
+    "label": "Application letter (DC1 form)",
+    "description": "Signed letter of application identifying the candidate and the lot.",
+    "mandatory": true
+  },
+  {
+    "code": "DC2",
+    "label": "Candidate declaration (DC2 form)",
+    "description": "Turnover of the last three years and the candidate's legal information.",
+    "mandatory": true
+  },
+  {
+    "code": "KBIS",
+    "label": "Company registration extract",
+    "description": "Registration certificate issued less than three months ago.",
+    "mandatory": true
+  },
+  {
+    "code": "INSURANCE",
+    "label": "Professional liability insurance certificate",
+    "description": "Certificate valid for the current year and covering the activity of the contract.",
+    "mandatory": true
+  },
+  {
+    "code": "REFERENCES",
+    "label": "List of similar references",
+    "description": "At least three similar projects completed in the last five years.",
+    "mandatory": false
+  }
+]

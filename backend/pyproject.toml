@@ -1,0 +1,36 @@
+[project]
+name = "tender-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<6",
+    "django-cors-headers>=4.9.0",
+    "djangorestframework>=3.18.3",
+    "gunicorn>=27.0.1",
+    "langchain-anthropic>=1.7.10",
+    "langchain-core>=1.8.1",
+    "langchain-ollama>=1.1.0",
+    "langfuse>=5.2.0",
+    "langgraph>=1.0",
+    "langgraph-checkpoint-postgres>=3.2.1",
+    "psycopg[binary]>=3.3.9",
+    "pydantic>=2.14.3",
+    "pypdf>=7.1.0",
+    "python-dotenv>=1.2.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
