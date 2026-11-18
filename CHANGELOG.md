@@ -17,3 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Deployment guide for Scaleway.
 - LangGraph Studio support through `langgraph.json` and the `make studio` target.
 - Recovery command for reviews interrupted by a restart of the service.
+- Evaluation results record whether the working tree was clean and a fingerprint of the code executed.
+
+### Fixed
+
+- Scaleway guide: the Compose override now removes the dependency on the local database with `!reset`; a plain empty list kept it and made the project invalid.

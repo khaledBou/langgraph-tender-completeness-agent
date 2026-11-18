@@ -38,7 +38,7 @@ The numbers measure the whole workflow, rules included, not the model alone.
 
 ## Traceability
 
-Each results JSON keeps, for every case, the findings with their evidence and file ids, the extracted documents, the reference decisions applied, the resolved findings, and the tokens. The header records the commit evaluated, a fingerprint of the dataset and of the checklist, the model, the provider and the character budget per file. The Markdown report lists the evidence quoted for every present finding.
+Each results JSON keeps, for every case, the findings with their evidence and file ids, the extracted documents, the reference decisions applied, the resolved findings, and the tokens. The header records the commit evaluated, whether the working tree was clean or modified at that moment, a fingerprint of the workflow and runner code actually executed, a fingerprint of the dataset and of the checklist, the model, the provider and the character budget per file. The result of 17 November 2026 predates the working tree and code fields: it was run on ab21013 plus the runner changes committed in c19c04e, see the note in its report. The Markdown report lists the evidence quoted for every present finding.
 
 ## Run
 

@@ -66,6 +66,29 @@ def git_commit() -> str:
         return "unknown"
 
 
+def working_tree() -> str:
+    """ "clean" when the evaluated code is exactly the commit, "modified" when local changes exist."""
+    try:
+        output = subprocess.run(
+            ["git", "status", "--porcelain", "--", "backend/agent", "backend/evaluation"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=True,
+        ).stdout
+    except Exception:
+        return "unknown"
+    return "modified" if output.strip() else "clean"
+
+
+def code_fingerprint() -> str:
+    """Fingerprint of the workflow and runner code actually executed, independent of git."""
+    backend = ROOT / "backend"
+    paths = [p for p in (backend / "agent").rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+    paths += [p for p in (backend / "evaluation").glob("*.py")]
+    return fingerprint(paths)
+
+
 def run_case(folder: Path, checklist: list[RequiredDocument]) -> dict:
     expected = json.loads((folder / "expected.json").read_text())
     usage = UsageMetadataCallbackHandler()
@@ -211,7 +234,8 @@ def write_markdown(path: Path, meta: dict, s: dict, results: list[dict]) -> None
         "Initial regression evaluation on short, largely templated English documents. These results do not establish performance on real tender applications.",
         "",
         f"Model: {meta['model']} (provider {meta['provider']}, structured outputs in JSON schema mode, {MAX_CHARS_PER_FILE} characters per file in the check prompt)",
-        f"Code: commit {meta['commit']}. Dataset fingerprint {meta['dataset_fingerprint']}, checklist fingerprint {meta['checklist_fingerprint']}.",
+        f"Code: commit {meta['commit']} (working tree {meta['working_tree']}, code fingerprint {meta['code_fingerprint']}). "
+        f"Dataset fingerprint {meta['dataset_fingerprint']}, checklist fingerprint {meta['checklist_fingerprint']}.",
         f"Dataset: {s['cases']} applications, {s['requirements']} requirement checks, reference date {meta['reference_date']}",
         f"Duration: {round(s['seconds'])} s. Tokens: {s['input_tokens']} in, {s['output_tokens']} out.",
         "",
@@ -295,6 +319,8 @@ def main() -> None:
         "model": model,
         "provider": provider,
         "commit": git_commit(),
+        "working_tree": working_tree(),
+        "code_fingerprint": code_fingerprint(),
         "dataset_fingerprint": fingerprint([p for p in DATASET_DIR.rglob("*") if p.is_file()]),
         "checklist_fingerprint": fingerprint([CHECKLIST]),
         "reference_date": results[0]["expected"]["reference_date"] if results else "",

@@ -26,7 +26,9 @@ Point a DNS record of your domain to the Instance IP, for example `tender.exampl
 
 ```bash
 ssh root@<instance ip>
-apt-get update && apt-get install -y docker.io docker-compose-v2 git
+apt-get update && apt-get install -y git curl
+curl -fsSL https://get.docker.com | sh
+docker compose version   # 2.24 or later is required for the override below
 git clone https://github.com/khaledBou/langgraph-tender-completeness-agent.git /opt/tender
 cd /opt/tender
 cp .env.example .env
@@ -54,12 +56,16 @@ services:
     environment:
       DATABASE_URL: postgres://tender:<password>@<db endpoint>:5432/rdb?sslmode=require
       CHECKPOINTER_URL: postgres://tender:<password>@<db endpoint>:5432/rdb?sslmode=require
-    depends_on: []
+    depends_on: !reset []
   db:
     profiles: ["local"]
 ```
 
-The `db` service is then only started with `--profile local`, which the production commands do not use.
+The `!reset` tag removes the dependency on `db` declared in the base file (a plain `depends_on: []` would keep it). The `db` service is then only started with `--profile local`, which the production commands do not use. Check the merged configuration before starting anything:
+
+```bash
+docker compose config --quiet
+```
 
 ## 4. Reverse proxy and TLS
 
